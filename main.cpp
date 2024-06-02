@@ -1,6 +1,7 @@
 #include <iostream>
 #include "raylib.h"
 #include <vector>
+//Set Up
 
 using namespace std;
 
