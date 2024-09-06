@@ -1,7 +1,12 @@
 #include <iostream>
 #include "raylib.h"
 #include <vector>
-//Set Up
+
+// for camera
+#include "rlgl.h"
+#include "raymath.h"
+
+// Set Up
 
 using namespace std;
 
@@ -11,6 +16,7 @@ const int screenWidth = 1500;
 // cube creation
 int cubeX = 400;
 int cubeY = 400;
+
 int cubeHeight = 25;
 int cubeWidth = 25;
 
@@ -39,22 +45,51 @@ int main()
     InitWindow(screenWidth, screenHeight, "My ScratchPad (Don't Forget To Screenshot Before Exiting)");
     SetTargetFPS(60);
 
+    Camera2D camera = {0};
+    camera.zoom = 1.0f;
+
+
+    // Main game loop
     while (WindowShouldClose() == false)
     {
         // Sync with current windows size
         int currentScreenWidth = GetScreenWidth();
         int currentScreenHeight = GetScreenHeight();
 
-        // Event Handling:  Mouse Drag, Erasing, Drawing, Collision With Border
+        // Event Handling:  Mouse Drag, Erasing, Drawing, Collision With Border and Cuve Posisi
+
+        // calcualte mouse coor position
+        Vector2 mouseWorldPos = GetScreenToWorld2D(GetMousePosition(), camera);
+
         // Mouse Drag
-        cubeX = GetMouseX() - cubeHeight / 2; // cube width 20/2
-        cubeY = GetMouseY() - cubeWidth / 2;  // cube height 40/2
+        cubeX = mouseWorldPos.x - cubeHeight / 2; // cube width 20/2
+        cubeY = mouseWorldPos.y - cubeWidth / 2;  // cube height 40/2
+
+        // Camera Zoom In MouseWheel
+        float wheel = GetMouseWheelMove();
+        if (wheel != 0)
+        {
+            // Get world point under mouse
+            Vector2 mouseWorldPos = GetScreenToWorld2D(GetMousePosition(), camera);
+            
+            // set offset position for mouse
+            camera.offset = GetMousePosition();
+
+            // set target for camera to map world space point
+            camera.target = mouseWorldPos;
+
+            // zoom increment number
+            float scaleFactor = 1.0f + (0.25f * fabs(wheel)); // fabs from CMath
+            if (wheel < 0)
+                scaleFactor = 1.0f / scaleFactor;
+            camera.zoom = Clamp(camera.zoom * scaleFactor, 0.125f, 64.0f);
+        }
 
         // Mouse Draw
         if (IsMouseButtonDown(MOUSE_LEFT_BUTTON))
         {
             isActive = true;
-            brushPos = {GetMousePosition()};      // Update brush position
+            brushPos = mouseWorldPos;      // Update brush position
             circlesPositions.push_back(brushPos); // Store the position of the circle
         }
         else if (IsMouseButtonUp(MOUSE_LEFT_BUTTON))
@@ -66,7 +101,7 @@ int main()
         if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT))
         {
             isActive = true;
-            eraserPos = {GetMousePosition()};
+           eraserPos = mouseWorldPos;
 
             // Check if eraser position overlaps with any chalk marks and remove them, otherwise brush cant draw where eraser has been used
             for (int i = 0; i < circlesPositions.size(); i++)
@@ -85,31 +120,11 @@ int main()
             isActive = false; // Stop Erasing
         }
 
-        // Cube Collision Effect
-        if (cubeX >= currentScreenWidth - cubeWidth) // Right side Collision
-        {
-            cubeX = currentScreenWidth - cubeWidth;
-            cubeSpeedX = -cubeSpeedX;
-        }
-        else if (cubeX <= 0) // Left side Collision
-        {
-            cubeX = 0;
-            cubeSpeedX = -cubeSpeedX;
-        }
-
-        if (cubeY >= currentScreenHeight - cubeHeight) // Bottom side Collision
-        {
-            cubeY = currentScreenHeight - cubeHeight;
-            cubeSpeedY = -cubeSpeedY;
-        }
-        else if (cubeY <= 0) // Top side Collision
-        {
-            cubeY = 0;
-            cubeSpeedY = -cubeSpeedY;
-        }
+        
 
         // Drawing Background and Cube
         BeginDrawing();
+        BeginMode2D(camera);
         ClearBackground(greenBG);
         DrawRectangle(cubeX, cubeY, cubeHeight, cubeWidth, WHITE);
 
