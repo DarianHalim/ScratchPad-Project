@@ -1,6 +1,7 @@
 #include <iostream>
 #include "raylib.h"
 #include <vector>
+#include <stack>
 
 // for camera
 #include "rlgl.h"
@@ -39,6 +40,22 @@ vector<Vector2> circlesPositions;
 Vector2 eraserPos = {-100, -100};
 vector<Vector2> eraserPositions;
 
+// Stroe chalk history for undo
+stack<vector<Vector2>> undoStack;
+
+void saveToUndoStack()
+{
+    undoStack.push(circlesPositions);
+}
+
+void clearUndoStack()
+{
+    while (!undoStack.empty())
+    {
+        undoStack.pop();
+    }
+}
+
 int main()
 {
     SetConfigFlags(FLAG_WINDOW_RESIZABLE); // Resizable Windows
@@ -48,14 +65,12 @@ int main()
     Camera2D camera = {0};
     camera.zoom = 1.0f;
 
+    bool drawingChanged = false;
+    bool erasingChanged = false;
 
     // Main game loop
     while (WindowShouldClose() == false)
     {
-        // Sync with current windows size
-        int currentScreenWidth = GetScreenWidth();
-        int currentScreenHeight = GetScreenHeight();
-
         // Event Handling:  Mouse Drag, Erasing, Drawing, Collision With Border and Cuve Posisi
 
         // calcualte mouse coor position
@@ -71,7 +86,7 @@ int main()
         {
             // Get world point under mouse
             Vector2 mouseWorldPos = GetScreenToWorld2D(GetMousePosition(), camera);
-            
+
             // set offset position for mouse
             camera.offset = GetMousePosition();
 
@@ -88,20 +103,31 @@ int main()
         // Mouse Draw
         if (IsMouseButtonDown(MOUSE_LEFT_BUTTON))
         {
-            isActive = true;
-            brushPos = mouseWorldPos;      // Update brush position
+
+            if (!drawingChanged)
+            {
+                saveToUndoStack(); // Save state before making changes
+                drawingChanged = true;
+            }
+
+            brushPos = mouseWorldPos;             // Update brush position
             circlesPositions.push_back(brushPos); // Store the position of the circle
         }
         else if (IsMouseButtonUp(MOUSE_LEFT_BUTTON))
         {
-            isActive = false; // Stop drawing
+            drawingChanged = false; // Stop drawing
         }
 
         // Mouse Erase
         if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT))
         {
-            isActive = true;
-           eraserPos = mouseWorldPos;
+            if (!erasingChanged)
+            {
+                saveToUndoStack(); // Save state before making changes
+                erasingChanged = true;
+            }
+
+            eraserPos = mouseWorldPos;
 
             // Check if eraser position overlaps with any chalk marks and remove them, otherwise brush cant draw where eraser has been used
             for (int i = 0; i < circlesPositions.size(); i++)
@@ -120,7 +146,15 @@ int main()
             isActive = false; // Stop Erasing
         }
 
-        
+        // Undo
+      if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_Z))
+        {
+            if (!undoStack.empty())
+            {
+                circlesPositions = undoStack.top();
+                undoStack.pop();
+            }
+        }
 
         // Drawing Background and Cube
         BeginDrawing();
